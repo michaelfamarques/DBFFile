@@ -123,10 +123,6 @@ async function createDBF(path: string, fields: FieldDescriptor[], options: Optio
         // Validate the field metadata.
         validateFieldDescriptors(fields);
 
-        // Disallow creation of DBF files with memo fields.
-        // TODO: Lift this restriction when memo support is fully implemented.
-        if (fields.some(f => f.type === 'M')) throw new Error(`Writing to files with memo fields is not supported.`);
-
         // Create the file and create a buffer to write through.
         fd = await open(path, 'wx');
         let buffer = Buffer.alloc(32);
@@ -392,9 +388,12 @@ async function appendRecordsToDBF(dbf: DBFFile, records: Array<Record<string, un
                         break;
 
                     case 'M': // Memo
-                        // Disallow writing to DBF files with memo fields.
-                        // TODO: Lift this restriction when memo support is fully implemented.
-                        throw new Error(`Writing to files with memo fields is not supported.`);
+                        let m = iconv.encode(value, encoding);
+                        for (let k = 0; k < field.size; ++k) {
+                            let byte = k < value.length ? m[k] : 0x20;
+                            buffer.writeUInt8(byte, offset++);
+                        }
+                        break;
 
                     default:
                         throw new Error(`Type '${field.type}' is not supported`);
